@@ -1,11 +1,11 @@
 var dotenv = require('dotenv').config();
-const SlackBot = require('slackbots');
-const low = require('lowdb')
+var SlackBot = require('slackbots');
+var low = require('lowdb')
 
 var db = low('db.json');
 
 // create a bot
-const bot = new SlackBot({
+var bot = new SlackBot({
   token: process.env.TOKEN, // Add a bot https://my.slack.com/services/new/bot and put the token
   name: process.env.NAME
 });
@@ -28,8 +28,8 @@ function checkUserStatus(c) {
 }
 
 function setAway (_user, _channel) {
-  let dbUser = _user;
-  let channel = _channel;
+  var dbUser = _user;
+  var channel = _channel;
 
   if (db.get('absence').find({ user: dbUser }).value() == undefined) {
     db.get('absence').push({ user: dbUser}).value();
@@ -40,8 +40,8 @@ function setAway (_user, _channel) {
 }
 
 function setOnline(_user, _channel) {
-  let dbUser = _user;
-  let channel = _channel;
+  var dbUser = _user;
+  var channel = _channel;
 
   if (db.get('absence').find({ user: dbUser }).value() != undefined) {
     db.get('absence').remove({ user: dbUser }).value();
@@ -52,9 +52,9 @@ function setOnline(_user, _channel) {
 }
 
 function postChannel(d){
-  let channel = d.channel;
+  var channel = d.channel;
   if (d.content){
-    let user = d.content.substring(0, d.content.indexOf(':'));
+    var user = d.content.substring(0, d.content.indexOf(':'));
 
     if (findWord('abwesend',d.content) == true){
       setAway(user,channel);
