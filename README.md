@@ -1,5 +1,5 @@
 # :palm_tree: franvaro :palm_tree:
-A bot for team-absence in slack
+A bot to manage absences in slack.
 
 ## How to Run:
 * `npm install`
