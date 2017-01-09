@@ -4,7 +4,7 @@ A bot to manage absences in slack.
 ## How to Run:
 * `npm install`
 * Create `.env`
-* Inser `TOKEN=Your Slack Token` and `NAME=YourBotName` in your `.env`
+* Insert `TOKEN=Your Slack Token` and `NAME=YourBotName` in your `.env`
 * Run `node index.js`
 
 ## What it does:
