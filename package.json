@@ -1,6 +1,7 @@
 {
   "name": "franvaro",
   "version": "1.0.0",
+  "private": true,
   "description": "A bot for team-absence in slack",
   "main": "index.js",
   "scripts": {
