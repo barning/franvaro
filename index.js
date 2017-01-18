@@ -53,31 +53,54 @@ function setOnline(_user, _channel) {
 
 function postChannel(d){
   var channel = d.channel;
-  if (d.content){
-    var user = d.content.substring(0, d.content.indexOf(':'));
+  if (d.text) {
+    var msg = d.text;
+  }
+  if (d.content) {
+    var msg= d.content;
+  }
+  if (msg){
+    var user = checkUser(d.user);
 
-    if (findWord('abwesend',d.content) == true){
+    if (findWord('abwesend',msg) == true){
       setAway(user,channel);
     }
 
-    if (findWord('anwesend',d.content) == true) {
+    if (findWord('anwesend',msg) == true) {
       setOnline(user,channel);
     }
 
-    if (findWord('status',d.content) == true){
+    if (findWord('status',msg) == true){
       checkUserStatus(channel);
     }
 
-    if ( findWord('status',d.content) == false && findWord('anwesend',d.content) == false && findWord('abwesend',d.content) == false) {
+    if ( findWord('status',msg) == false && findWord('anwesend',msg) == false && findWord('abwesend',msg) == false) {
       bot.postMessage(channel, 'hey, ' + user + ' ich habe dich nicht verstanden. Du kannst mir die Befehle "anwesend", "abwesend", oder "status" geben.');
     }
 
   }
 }
 
+function checkMention(d) {
+  if (findWord(process.env.NAME.toLowerCase(), d.toLowerCase()) || findWord('@' + process.env.NAME.toLowerCase(), '@' + d.toLowerCase())) {
+    return true;
+  }
+}
+
+function checkUser(id) {
+  var json = bot.getUsers()._value.members;
+  for(var i = 0; i < json.length; i++) {
+    var obj = json[i];
+    if (obj.id == id) {
+      return obj.name;
+    }
+  }
+}
+
 bot.on('message', function(data) {
   // all ingoing events https://api.slack.com/rtm
-  if (data.type == 'desktop_notification'){
+  console.log(data, data.user);
+  if (data.type == 'message' && checkMention(data.text)) {
     postChannel(data);
   }
 
