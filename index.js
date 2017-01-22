@@ -1,8 +1,15 @@
 var dotenv = require('dotenv').config();
 var SlackBot = require('slackbots');
 var low = require('lowdb')
+var schedule = require('node-schedule');
 
 var db = low('db.json');
+
+var params = {
+    icon_emoji: ':palm_tree:'
+};
+
+var userListeners = [];
 
 // create a bot
 var bot = new SlackBot({
@@ -15,15 +22,59 @@ bot.on('start', function() {
   .value()
 });
 
+var absenceStatusPost = schedule.scheduleJob('0	10	*	*	*	', function(){
+  bot.postMessageToChannel('general', 'Guten Morgen, diese Personen sind abwesend: ' + returnAbsenceList(), params);
+});
+
+function setListener(user) {
+  userListeners.push(user)
+}
+
+function removeListener(user) {
+  var i = userListeners.indexOf(user);
+  if(i != -1) {
+    userListeners.splice(i, 1);
+  }
+}
+
+function checkUserListener(user, text){
+  var i = userListeners.indexOf(user);
+  if(i != -1) {
+    setNote(user, text);
+  }
+}
+
+function setNote(dbUser, text) {
+  db.get('absence').push({ user: dbUser, note: text}).value();
+  removeListener(dbUser);
+  bot.postMessageToUser(dbUser, 'Ok, ' + dbUser + ' ich habe dich als abwesend eingetragen. Bis dann!', params);
+}
+
 function findWord(word, str) {
-  return str.split(' ').some(function(w){return w === word})
+  return str.split(' ').some(function(w){
+    return w === word
+  })
+}
+
+function returnAbsenceList() {
+  var list = [];
+  for (var i = 0; i < db.get('absence').size().value(); i++) {
+    if (db.get('absence[' + [i] + '].user').value()) {
+      list.push('\n' + db.get('absence[' + [i] + '].user').value());
+    }
+    if (db.get('absence[' + [i] + '].note').value()) {
+      list.push(' Mit der Notiz: ' + db.get('absence[' + [i] + '].note').value());
+    }
+  }
+  return list;
 }
 
 function checkUserStatus(c) {
+  console.log('Check user Status in ' + c);
   if (db.get('absence').map('user').value() != undefined) {
-    bot.postMessage(c, 'Diese Personen sind abwesend: ' + db.get('absence').map('user').value());
+    bot.postMessage(c, 'Diese Personen sind abwesend: ' + returnAbsenceList(), params);
   } else {
-    bot.postMessage(c, 'Es ist niemand Abwesend');
+    bot.postMessage(c, 'Es ist niemand Abwesend', params);
   }
 }
 
@@ -31,11 +82,14 @@ function setAway (_user, _channel) {
   var dbUser = _user;
   var channel = _channel;
 
+  console.log('Setting ' + _user + ' as away in channel ' + _channel);
+
   if (db.get('absence').find({ user: dbUser }).value() == undefined) {
-    db.get('absence').push({ user: dbUser}).value();
-    bot.postMessage(channel, 'Ok, ' + dbUser + ' ich habe dich als abwesend eingetragen.');
+    bot.postMessageToUser(_user, 'Hey, bitte schreibe mir noch eine Abwesenheitsnotiz. Danach wirst du als "Abwesend" eingetragen.', params).then(function(data) {
+      setListener(dbUser);
+    });
   } else {
-    bot.postMessage(channel, 'Hey, ' + dbUser + ' du bist schon in der Abwesenheitsliste.');
+    bot.postMessage(channel, 'Hey, ' + dbUser + ' du bist schon in der Abwesenheitsliste.', params);
   }
 }
 
@@ -43,42 +97,70 @@ function setOnline(_user, _channel) {
   var dbUser = _user;
   var channel = _channel;
 
+  console.log('Setting ' + _user + ' as online in channel ' + _channel);
+
   if (db.get('absence').find({ user: dbUser }).value() != undefined) {
     db.get('absence').remove({ user: dbUser }).value();
-    bot.postMessage(channel, 'Ok, ' + dbUser + ' ich habe dich aus der Abwesenheitsliste ausgetragen.');
+    bot.postMessage(channel, 'Ok, ' + dbUser + ' ich habe dich aus der Abwesenheitsliste ausgetragen.', params);
   } else {
-    bot.postMessage(channel, 'Mhh, ' + dbUser + ' du scheinst nicht in der Abwesenheitsliste zu sein.');
+    bot.postMessage(channel, 'Mhh, ' + dbUser + ' du scheinst nicht in der Abwesenheitsliste zu sein.', params);
   }
 }
 
 function postChannel(d){
   var channel = d.channel;
-  if (d.content){
-    var user = d.content.substring(0, d.content.indexOf(':'));
+  if (d.text) {
+    var msg = d.text;
+  }
+  if (d.content) {
+    var msg= d.content;
+  }
+  if (msg){
+    var user = checkUser(d.user);
 
-    if (findWord('abwesend',d.content) == true){
+    if (findWord('abwesend',msg) == true){
       setAway(user,channel);
     }
 
-    if (findWord('anwesend',d.content) == true) {
+    if (findWord('anwesend',msg) == true) {
       setOnline(user,channel);
     }
 
-    if (findWord('status',d.content) == true){
+    if (findWord('status',msg) == true){
       checkUserStatus(channel);
     }
 
-    if ( findWord('status',d.content) == false && findWord('anwesend',d.content) == false && findWord('abwesend',d.content) == false) {
-      bot.postMessage(channel, 'hey, ' + user + ' ich habe dich nicht verstanden. Du kannst mir die Befehle "anwesend", "abwesend", oder "status" geben.');
+    if ( findWord('status',msg) == false && findWord('anwesend',msg) == false && findWord('abwesend',msg) == false) {
+      console.log('Error in channel ' + channel + ' with user ' + user);
+      bot.postMessage(channel, 'hey, ' + user + ' ich habe dich nicht verstanden. Du kannst mir die Befehle "anwesend", "abwesend", oder "status" geben.', params);
     }
 
   }
 }
 
+function checkMention(d) {
+  if (findWord(process.env.NAME.toLowerCase(), d.toLowerCase()) || findWord('@' + process.env.NAME.toLowerCase(), '@' + d.toLowerCase())) {
+    return true;
+  }
+}
+
+function checkUser(id) {
+  var json = bot.getUsers()._value.members;
+  for(var i = 0; i < json.length; i++) {
+    var obj = json[i];
+    if (obj.id == id) {
+      return obj.name;
+    }
+  }
+}
+
 bot.on('message', function(data) {
   // all ingoing events https://api.slack.com/rtm
-  if (data.type == 'desktop_notification'){
+  if (data.type == 'message' && checkMention(data.text)) {
     postChannel(data);
   }
 
+  if (data.type == 'message') {
+    checkUserListener(checkUser(data.user), data.text);
+  }
 });
