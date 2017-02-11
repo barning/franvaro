@@ -23,7 +23,7 @@ bot.on('start', function() {
 });
 
 var absenceStatusPost = schedule.scheduleJob('0	10	*	*	*	', function(){
-  bot.postMessageToChannel('general', 'Guten Morgen, diese Personen sind abwesend: ' + returnAbsenceList(), params);
+  bot.postMessageToChannel('abwesenheitsliste', 'Guten Morgen, diese Personen sind abwesend: ' + returnAbsenceList(), params);
 });
 
 function setListener(user) {
@@ -45,9 +45,22 @@ function checkUserListener(user, text){
 }
 
 function setNote(dbUser, text) {
-  db.get('absence').push({ user: dbUser, note: text}).value();
-  removeListener(dbUser);
-  bot.postMessageToUser(dbUser, 'Ok, ' + dbUser + ' ich habe dich als abwesend eingetragen. Bis dann!', params);
+  if (findWord('status',text) || findWord('abwesend',text) || findWord('anwesend',text)) {
+    console.log('Failed to set the status of ' + dbUser + ', because I found a keyword. I try again.');
+    bot.postMessageToUser(dbUser, 'Sorry, ' + dbUser + ' kannst du mir bitte einen Satz ohne "status", "abwesend", oder "anwesend" schreiben? Ich komme sonst durcheinander.', params);
+  }
+  if (!findWord('status',text) && !findWord('abwesend',text) && !findWord('anwesend',text) && findWord('nein',text)) {
+    console.log(dbUser + ' wants no note.');
+    db.get('absence').push({ user: dbUser }).value();
+    removeListener(dbUser);
+    bot.postMessageToUser(dbUser, 'Ok, ' + dbUser + ' ich habe dich als abwesend eingetragen. Bis dann!', params);
+  }
+  if (!findWord('nein',text) && !findWord('status',text) && !findWord('abwesend',text) && !findWord('anwesend',text)) {
+    console.log(dbUser + ' has a note and is on the list.');
+    db.get('absence').push({ user: dbUser, note: text}).value();
+    removeListener(dbUser);
+    bot.postMessageToUser(dbUser, 'Ok, ' + dbUser + ' ich habe dich als abwesend eingetragen. Bis dann!', params);
+  }
 }
 
 function findWord(word, str) {
@@ -85,7 +98,7 @@ function setAway (_user, _channel) {
   console.log('Setting ' + _user + ' as away in channel ' + _channel);
 
   if (db.get('absence').find({ user: dbUser }).value() == undefined) {
-    bot.postMessageToUser(_user, 'Hey, bitte schreibe mir noch eine Abwesenheitsnotiz. Danach wirst du als "Abwesend" eingetragen.', params).then(function(data) {
+    bot.postMessageToUser(_user, 'Hey, bitte schreibe mir noch eine Abwesenheitsnotiz. Danach wirst du als "Abwesend" eingetragen. Um keine Notiz zu hinterlassen, scheibe einfach "Nein".', params).then(function(data) {
       setListener(dbUser);
     });
   } else {
