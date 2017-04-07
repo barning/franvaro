@@ -44,6 +44,12 @@ function checkUserListener(user, text){
   }
 }
 
+function findWord(word, str) {
+  return str.split(' ').some(function(w){
+    return w === word
+  })
+}
+
 function setNote(dbUser, text) {
   if (findWord('status',text) || findWord('abwesend',text) || findWord('anwesend',text)) {
     console.log('Failed to set the status of ' + dbUser + ', because I found a keyword. I try again.');
@@ -63,11 +69,6 @@ function setNote(dbUser, text) {
   }
 }
 
-function findWord(word, str) {
-  return str.split(' ').some(function(w){
-    return w === word
-  })
-}
 
 function returnAbsenceList() {
   var list = [];
@@ -131,15 +132,15 @@ function postChannel(d){
   if (msg){
     var user = checkUser(d.user);
 
-    if (findWord('abwesend',msg) == true){
+    if (findWord('abwesend',msg) == true || findWord('abwesend.',msg) == true){
       setAway(user,channel);
     }
 
-    if (findWord('anwesend',msg) == true) {
+    if (findWord('anwesend',msg) == true || findWord('anwesend.',msg) == true) {
       setOnline(user,channel);
     }
 
-    if (findWord('status',msg) == true){
+    if (findWord('status',msg) == true || findWord('status.',msg) == true){
       checkUserStatus(channel);
     }
 
