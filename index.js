@@ -1,6 +1,7 @@
 var dotenv = require('dotenv').config();
 var SlackBot = require('slackbots');
 var low = require('lowdb')
+var schedule = require('node-schedule');
 
 var db = low('db.json');
 
@@ -21,6 +22,10 @@ bot.on('start', function() {
   .value()
 });
 
+var absenceStatusPost = schedule.scheduleJob('0	10	*	*	*	', function(){
+  bot.postMessageToChannel('abwesenheitsliste', 'Guten Morgen, diese Personen sind abwesend: ' + returnAbsenceList(), params);
+});
+
 function setListener(user) {
   userListeners.push(user)
 }
@@ -37,6 +42,12 @@ function checkUserListener(user, text){
   if(i != -1) {
     setNote(user, text);
   }
+}
+
+function findWord(word, str) {
+  return str.split(' ').some(function(w){
+    return w === word
+  })
 }
 
 function setNote(dbUser, text) {
@@ -58,11 +69,6 @@ function setNote(dbUser, text) {
   }
 }
 
-function findWord(word, str) {
-  return str.split(' ').some(function(w){
-    return w === word
-  })
-}
 
 function returnAbsenceList() {
   var list = [];
@@ -115,46 +121,6 @@ function setOnline(_user, _channel) {
   }
 }
 
-function otherUserMention(d) {
-  var json = bot.getUsers()._value.members;
-  var mention = { bool:false, name: undefined };
-
-  for(var i = 0; i < json.length; i++) {
-    var name = json[i].name;
-    console.log(json[i], 'frommention');
-    if (findWord(name,d)) {
-      console.log('true');
-      mention.bool= true;
-      mention.name= name;
-    }
-    else {
-      mention.bool = false;
-      console.log('false');
-    }
-
-    return mention;
-  }
-}
-
-function findKeyWords(msg, channel, user) {
-  if (findWord('abwesend',msg) == true){
-    setAway(user,channel);
-  }
-
-  if (findWord('anwesend',msg) == true) {
-    setOnline(user,channel);
-  }
-
-  if (findWord('status',msg) == true){
-    checkUserStatus(channel);
-  }
-
-  if ( findWord('status',msg) == false && findWord('anwesend',msg) == false && findWord('abwesend',msg) == false) {
-    console.log('Error in channel ' + channel + ' with user ' + user);
-    bot.postMessage(channel, 'hey, ' + user + ' ich habe dich nicht verstanden. Du kannst mir die Befehle "anwesend", "abwesend", oder "status" geben.', params);
-  }
-}
-
 function postChannel(d){
   var channel = d.channel;
   if (d.text) {
@@ -164,13 +130,25 @@ function postChannel(d){
     var msg= d.content;
   }
   if (msg){
-    if (otherUserMention(msg).bool) {
-      console.log('otheruser');
-      findKeyWords(msg, channel, otherUserMention(msg).name);
-    } else {
-      var user = checkUser(d.user);
-      findKeyWords(msg, channel, user);
+    var user = checkUser(d.user);
+
+    if (findWord('abwesend',msg) == true || findWord('abwesend.',msg) == true){
+      setAway(user,channel);
     }
+
+    if (findWord('anwesend',msg) == true || findWord('anwesend.',msg) == true) {
+      setOnline(user,channel);
+    }
+
+    if (findWord('status',msg) == true || findWord('status.',msg) == true){
+      checkUserStatus(channel);
+    }
+
+    if ( findWord('status',msg) == false && findWord('anwesend',msg) == false && findWord('abwesend',msg) == false) {
+      console.log('Error in channel ' + channel + ' with user ' + user);
+      bot.postMessage(channel, 'hey, ' + user + ' ich habe dich nicht verstanden. Du kannst mir die Befehle "anwesend", "abwesend", oder "status" geben.', params);
+    }
+
   }
 }
 
